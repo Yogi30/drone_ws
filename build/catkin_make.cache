@@ -1,0 +1,2 @@
+DroneControlScripts
+-DCATKIN_DEVEL_PREFIX=/home/yogesh/drone_ws/devel -DCMAKE_INSTALL_PREFIX=/home/yogesh/drone_ws/install -G Unix Makefiles

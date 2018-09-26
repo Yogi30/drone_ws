@@ -1,0 +1,8 @@
+prefix=/home/yogesh/drone_ws/install
+
+Name: DroneControlScripts
+Description: Description of DroneControlScripts
+Version: 0.0.0
+Cflags: 
+Libs: -L/home/yogesh/drone_ws/install/lib 
+Requires: 
