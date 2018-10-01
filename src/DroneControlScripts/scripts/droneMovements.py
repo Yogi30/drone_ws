@@ -47,7 +47,8 @@ class FlightModes:
 
 	def change_to_OffBoard(self):
 		while not self.current_state.connected:
-			rate.sleep()
+			print "I'm here"
+			self.rate.sleep()
 
 		self.mode_handler = rospy.ServiceProxy("mavros/set_mode",SetMode)
 		self.pose.pose.position.x = 0
@@ -60,7 +61,7 @@ class FlightModes:
 			self.rate.sleep()
 
 		self.last_request = rospy.Time.now()
-        while not self.current_state.mode == "OFFBOARD":
+		while not self.current_state.mode == "OFFBOARD":
 
 			if (self.current_state.mode != "OFFBOARD") and (rospy.Time.now() - self.last_request > rospy.Duration(5)):
 				self.mode_handler(base_mode=0, custom_mode="OFFBOARD") 
@@ -81,14 +82,6 @@ class FlightModes:
 			mode_handler(custom_mode='STABILIZED')
 		except rospy.ServiceException, e:
 			print "service set_mode call failed: %s. Stabilized Mode could not be set."%e
-
-	# def change_to_OffBoard(self):
-	# 	rospy.wait_for_service('mavros/set_mode')
-	# 	try:
-	# 		flightModeService = rospy.ServiceProxy('mavros/set_mode', mavros_msgs.srv.SetMode)
-	# 		flightModeService(custom_mode='OFFBOARD')
-	# 	except rospy.ServiceException, e:
-	# 		print "service set_mode call failed: %s. Offboard Mode could not be set."%e
 
 	def change_to_Altitude(self):
 		rospy.wait_for_service('mavros/set_mode')
@@ -124,13 +117,13 @@ class FlightModes:
 class FlightMovements:
 	def __init__(self):
 		self.state = State()
-        self.drone_pos_target = PositionTarget()
-        self.drone_pos_target.type_mask = int('010111111000', 2)
-        self.drone_pos_target.coordinate_frame = 1
-        self.local_pos = Point()
-        self.drone_pos_target.position.x = 0.0
-        self.drone_pos_target.position.y = 0.0
-        self.drone_pos_target.position.z = 0.0
+		self.drone_pos_target = PositionTarget()
+		self.drone_pos_target.type_mask = int('010111111000', 2)
+		self.drone_pos_target.coordinate_frame = 1
+		self.local_pos = Point()
+		self.drone_pos_target.position.x = 0.0
+		self.drone_pos_target.position.y = 0.0
+		self.drone_pos_target.position.z = 0.0
 
 	def position_cb(self, msg):
 		self.local_pos.x = msg.pose.position.x
@@ -169,12 +162,14 @@ if __name__ == '__main__':
 	rospy.loginfo("Creating Instances")
 
 	rospy.init_node('MovementControl',anonymous=True)	
-	rospy.Subscriber("mavros/State",State,droneMode.state_cb)
-	rospy.Subscriber('mavros/local_position/pose', PoseStamped, droneMovement.position_cb)
+	
 
 	droneMode = FlightModes()
 	droneMovement = FlightMovements()
 	droneControl = FlightControl()
+
+	rospy.Subscriber("mavros/State",State,droneMode.state_cb)
+	rospy.Subscriber('mavros/local_position/pose', PoseStamped, droneMovement.position_cb)
 
 	droneMode.change_to_OffBoard()
 	droneControl.arm()
