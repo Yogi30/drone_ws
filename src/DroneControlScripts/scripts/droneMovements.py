@@ -50,7 +50,7 @@ class FlightModes:
 		self.mode_handler = rospy.ServiceProxy("mavros/set_mode",SetMode)
 		self.pose.pose.position.x = 0
 		self.pose.pose.position.y = 0
-		self.pose.pose.position.z = 2
+		self.pose.pose.position.z = 3
 		self.setpoint_pub = rospy.Publisher("mavros/setpoint_position/local",PoseStamped,queue_size = 10)
 
 		for i in range(100):
@@ -69,7 +69,7 @@ class FlightModes:
 
 			self.previous_state = current_state
 			self.pose.header.stamp = rospy.Time.now()
-			self.setpoint_pub.publish(pose)
+			self.setpoint_pub.publish(self.pose)
 			self.rate.sleep()
 
 	def change_to_Stabilized(self):
@@ -163,13 +163,10 @@ if __name__ == '__main__':
 	
 	while not current_state.connected:
 		rate.sleep()
-	rospy.loginfo("%r"% current_state.connected)
-	# droneMode.change_to_OffBoard()
+	rospy.loginfo("Connected: %r"% current_state.connected)
 	while not current_state.armed:
 			droneControl.arm()
 			rate.sleep()
-	rospy.loginfo("%r"% current_state.armed)
-	
-	# droneControl.takeoff()
-	# droneMovement.update_drone_pos()
-	# droneMovement.x_dir()
+	rospy.loginfo("Armed: %r"% current_state.armed)
+	droneMode.change_to_OffBoard()
+	droneControl.takeoff()
