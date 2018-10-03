@@ -7,15 +7,16 @@ from geometry_msgs.msg import Point,PoseStamped
 from mavros_msgs.srv import *
 import time
 
+current_state = State()
 
 class FlightControl:
 	def __init__(self):		
-		self.current_state = State()
+		pass
 
 	def takeoff(self):
 		rospy.wait_for_service('mavros/cmd/takeoff')
 		try:
-			takeoff_handler = rospy.ServiceProxy('mavros/cmd/takeoff', mavros_msgs.srv.CommandTOL)
+			takeoff_handler = rospy.ServiceProxy('mavros/cmd/takeoff', CommandTOL)
 			takeoff_handler(altitude = 3)
 		except rospy.ServiceException, e:
 			print "Service takeoff call failed: %s"%e
@@ -23,18 +24,16 @@ class FlightControl:
 	def arm(self):
 		rospy.wait_for_service('mavros/cmd/arming')
 		try:
-		    arming_handler = rospy.ServiceProxy("mavros/cmd/arming",CommandBool)
-		    arming_handler(True)
-		    rospy.loginfo("%r" % self.current_state.armed) 
+			arming_handler = rospy.ServiceProxy('mavros/cmd/arming', CommandBool)
+			arming_handler(True)
 		except rospy.ServiceException, e:
-		    print "Service arming call failed: %s"%e
+			print "Service arming call failed: %s"%e
 
 	def disarm(self):
 		rospy.wait_for_service('mavros/cmd/arming')
 		try:
 		    arming_handler = rospy.ServiceProxy("mavros/cmd/arming",CommandBool)
-		    arming_handler(False)
-		    rospy.loginfo("%r" % self.current_state.armed) 
+		    arming_handler(False) 
 		except rospy.ServiceException, e:
 			print "Service disarming call failed: %s"%e
 
@@ -42,18 +41,16 @@ class FlightModes:
 	def __init__(self):
 		self.rate = rospy.Rate(20)
 		self.pose = PoseStamped()
-		self.current_state = State()
 		self.previous_state = State()
 
 	def change_to_OffBoard(self):
-		while not self.current_state.connected:
-			print "I'm here"
+		while not current_state.connected:
 			self.rate.sleep()
 
 		self.mode_handler = rospy.ServiceProxy("mavros/set_mode",SetMode)
 		self.pose.pose.position.x = 0
 		self.pose.pose.position.y = 0
-		self.pose.pose.position.z = 0
+		self.pose.pose.position.z = 2
 		self.setpoint_pub = rospy.Publisher("mavros/setpoint_position/local",PoseStamped,queue_size = 10)
 
 		for i in range(100):
@@ -61,16 +58,16 @@ class FlightModes:
 			self.rate.sleep()
 
 		self.last_request = rospy.Time.now()
-		while not self.current_state.mode == "OFFBOARD":
+		while not current_state.mode == "OFFBOARD":
 
-			if (self.current_state.mode != "OFFBOARD") and (rospy.Time.now() - self.last_request > rospy.Duration(5)):
+			if (current_state.mode != "OFFBOARD") and (rospy.Time.now() - self.last_request > rospy.Duration(5)):
 				self.mode_handler(base_mode=0, custom_mode="OFFBOARD") 
 				self.last_request = rospy.Time.now()
 
-			if self.previous_state.mode != self.current_state.mode:
-				rospy.loginfo("%r"%self.current_state.mode)
+			if self.previous_state.mode != current_state.mode:
+				rospy.loginfo("%r"%current_state.mode)
 
-			self.previous_state = self.current_state
+			self.previous_state = current_state
 			self.pose.header.stamp = rospy.Time.now()
 			self.setpoint_pub.publish(pose)
 			self.rate.sleep()
@@ -107,12 +104,9 @@ class FlightModes:
 		except rospy.ServiceException, e:
 			print "service set_mode call failed: %s. Autoland Mode could not be set."%e
 
-	def getMode(self):
-		return self.current_state.mode
-
 	def state_cb(self,msg):
-		self.current_state = msg
-
+		global current_state
+		current_state = msg
 
 class FlightMovements:
 	def __init__(self):
@@ -156,23 +150,26 @@ class FlightMovements:
 		self.drone_pos_target.position.x = self.local_pos.x
 		self.drone_pos_target.position.y = self.local_pos.y - 5
 
-
 if __name__ == '__main__':
-
-	rospy.loginfo("Creating Instances")
-
 	rospy.init_node('MovementControl',anonymous=True)	
-	
+	rate = rospy.Rate(20)
 
 	droneMode = FlightModes()
 	droneMovement = FlightMovements()
 	droneControl = FlightControl()
 
-	rospy.Subscriber("mavros/State",State,droneMode.state_cb)
-	rospy.Subscriber('mavros/local_position/pose', PoseStamped, droneMovement.position_cb)
-
-	droneMode.change_to_OffBoard()
-	droneControl.arm()
-	droneControl.takeoff()
-	droneMovement.update_drone_pos()
-	droneMovement.x_dir()
+	state_sub = rospy.Subscriber("mavros/state",State,droneMode.state_cb)
+	pose_sub = rospy.Subscriber('mavros/local_position/pose', PoseStamped, droneMovement.position_cb)
+	
+	while not current_state.connected:
+		rate.sleep()
+	rospy.loginfo("%r"% current_state.connected)
+	# droneMode.change_to_OffBoard()
+	while not current_state.armed:
+			droneControl.arm()
+			rate.sleep()
+	rospy.loginfo("%r"% current_state.armed)
+	
+	# droneControl.takeoff()
+	# droneMovement.update_drone_pos()
+	# droneMovement.x_dir()
