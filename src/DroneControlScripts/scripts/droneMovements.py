@@ -139,16 +139,19 @@ class FlightMovements:
 		self.update_drone_pos()
 		self.drone_pos_target.position.x = self.local_pos.x - 5
 		self.drone_pos_target.position.y = self.local_pos.y
+		rospy.loginfo("negative x_dir")
 
 	def y_dir(self):
 		self.update_drone_pos()
 		self.drone_pos_target.position.x = self.local_pos.x
 		self.drone_pos_target.position.y = self.local_pos.y + 5
+		rospy.loginfo("y_dir")
 
 	def neg_y_dir(self):
 		self.update_drone_pos()
 		self.drone_pos_target.position.x = self.local_pos.x
 		self.drone_pos_target.position.y = self.local_pos.y - 5
+		rospy.loginfo("negative y_dir")
 
 if __name__ == '__main__':
 	rospy.init_node('MovementControl',anonymous=True)	
@@ -160,7 +163,8 @@ if __name__ == '__main__':
 
 	state_sub = rospy.Subscriber("mavros/state",State,droneMode.state_cb)
 	pose_sub = rospy.Subscriber('mavros/local_position/pose', PoseStamped, droneMovement.position_cb)
-	
+	setpoint_pub = rospy.Publisher('mavros/setpoint_raw/local', PositionTarget, queue_size=1)
+
 	while not current_state.connected:
 		rate.sleep()
 	rospy.loginfo("Connected: %r"% current_state.connected)
@@ -168,5 +172,14 @@ if __name__ == '__main__':
 			droneControl.arm()
 			rate.sleep()
 	rospy.loginfo("Armed: %r"% current_state.armed)
-	droneMode.change_to_OffBoard()
 	droneControl.takeoff()
+	droneMode.change_to_OffBoard()
+
+	# while not rospy.is_shutdown():
+	droneMovement.x_dir()
+	setpoint_pub.publish(droneMovement.drone_pos_target)
+	rate.sleep()
+
+	
+
+
