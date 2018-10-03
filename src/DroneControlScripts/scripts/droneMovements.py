@@ -6,6 +6,7 @@ from mavros_msgs.msg import *
 from geometry_msgs.msg import Point,PoseStamped
 from mavros_msgs.srv import *
 import time
+import math
 
 current_state = State()
 
@@ -118,6 +119,14 @@ class FlightMovements:
 		self.drone_pos_target.position.x = 0.0
 		self.drone_pos_target.position.y = 0.0
 		self.drone_pos_target.position.z = 0.0
+		self.drone_pos_control = PoseStamped()
+		# self.drone_pos_control.header.frame_id = 1
+		self.drone_pos_control.pose.position.x = 0.0
+		self.drone_pos_control.pose.position.y = 0.0
+		self.drone_pos_control.pose.position.z = 1.0
+		self.wn = 1
+		self.r = 1
+		self.count = 0.0
 
 	def position_cb(self, msg):
 		self.local_pos.x = msg.pose.position.x
@@ -133,25 +142,31 @@ class FlightMovements:
 		self.update_drone_pos()
 		self.drone_pos_target.position.x = self.local_pos.x + 5
 		self.drone_pos_target.position.y = self.local_pos.y
-		rospy.loginfo("x_dir")
 
 	def neg_x_dir(self):
 		self.update_drone_pos()
 		self.drone_pos_target.position.x = self.local_pos.x - 5
 		self.drone_pos_target.position.y = self.local_pos.y
-		rospy.loginfo("negative x_dir")
 
 	def y_dir(self):
 		self.update_drone_pos()
 		self.drone_pos_target.position.x = self.local_pos.x
 		self.drone_pos_target.position.y = self.local_pos.y + 5
-		rospy.loginfo("y_dir")
 
 	def neg_y_dir(self):
 		self.update_drone_pos()
 		self.drone_pos_target.position.x = self.local_pos.x
 		self.drone_pos_target.position.y = self.local_pos.y - 5
-		rospy.loginfo("negative y_dir")
+
+	def makeacircle(self):
+		self.drone_pos_control.header.stamp = rospy.Time.now()
+		self.drone_pos_control.header.seq=self.count
+		self.theta = self.wn*self.count*0.05
+		self.drone_pos_control.pose.position.x = self.r*math.sin(self.theta)
+		self.drone_pos_control.pose.position.y = self.r*math.cos(self.theta)
+		self.drone_pos_control.pose.position.z = 3
+		self.count = self.count + 1
+
 
 if __name__ == '__main__':
 	rospy.init_node('MovementControl',anonymous=True)	
@@ -163,7 +178,8 @@ if __name__ == '__main__':
 
 	state_sub = rospy.Subscriber("mavros/state",State,droneMode.state_cb)
 	pose_sub = rospy.Subscriber('mavros/local_position/pose', PoseStamped, droneMovement.position_cb)
-	setpoint_pub = rospy.Publisher('mavros/setpoint_raw/local', PositionTarget, queue_size=1)
+	# setpoint_pub = rospy.Publisher('mavros/setpoint_raw/local', PositionTarget, queue_size=1)
+	setpoint_pub = rospy.Publisher('mavros/setpoint_position/local',PoseStamped,queue_size=10)
 
 	while not current_state.connected:
 		rate.sleep()
@@ -174,12 +190,12 @@ if __name__ == '__main__':
 	rospy.loginfo("Armed: %r"% current_state.armed)
 	droneControl.takeoff()
 	droneMode.change_to_OffBoard()
+	while not rospy.is_shutdown():
+		# droneMovement.x_dir()
+		droneMovement.makeacircle()
+		setpoint_pub.publish(droneMovement.drone_pos_control)
+		rate.sleep()
 
-	# while not rospy.is_shutdown():
-	droneMovement.x_dir()
-	setpoint_pub.publish(droneMovement.drone_pos_target)
-	rate.sleep()
 
-	
 
 
