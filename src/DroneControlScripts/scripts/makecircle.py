@@ -1,15 +1,23 @@
 #!/usr/bin/env python
 
-
 import rospy
 import mavros
-from geometry_msgs.msg import PoseStamped
-from mavros_msgs.srv import SetMode
-from mavros_msgs.msg import State
-from mavros_msgs.srv import CommandBool
+from mavros_msgs.msg import *
+from geometry_msgs.msg import Point,PoseStamped,Twist
+from mavros_msgs.srv import *
+import time
+import math
 
 current_state = State()
 previous_state = State()
+
+def takeoff():
+	rospy.wait_for_service('mavros/cmd/takeoff')
+	try:
+		takeoff_handler = rospy.ServiceProxy('mavros/cmd/takeoff', CommandTOL)
+		takeoff_handler(altitude = 2)
+	except rospy.ServiceException, e:
+		print "Service takeoff call failed: %s"%e
 
 def state_cb(msg):
 	global current_state
@@ -19,22 +27,25 @@ if __name__ == '__main__':
 	rospy.init_node('offboard_node',anonymous=True)
 	rate = rospy.Rate(20)
 	state_sub = rospy.Subscriber("mavros/state",State,state_cb)
-	pub = rospy.Publisher("mavros/setpoint_position/local",PoseStamped,queue_size=10)
+	pub = rospy.Publisher("mavros/setpoint_velocity/cmd_vel_unstamped",Twist,queue_size=10)
 	arming_handler = rospy.ServiceProxy("mavros/cmd/arming",CommandBool)
 	set_mode_handler = rospy.ServiceProxy("mavros/set_mode",SetMode)	
 
 	circle = Twist()
+	count = 0
 
 	while not current_state.connected:
 		rate.sleep()
 
-	pose = PoseStamped()
-	pose.pose.position.x = 0
-	pose.pose.position.y = 0
-	pose.pose.position.z = 2
+	arming_handler(True)
+	takeoff()
+
+	circle.linear.y = 1 * math.cos(0.50 * count)
+	circle.linear.x = 1 * math.sin(0.50 * count)
+	circle.angular.z = -0.50
 
 	for i in range(100):
-		pub.publish(pose)
+		pub.publish(circle)
 		rate.sleep()
 
 	last_request = rospy.Time.now()
@@ -57,8 +68,14 @@ if __name__ == '__main__':
 				rospy.loginfo("%r"%current_state.mode)
 
 			previous_state = current_state
-			pose.header.stamp = rospy.Time.now()
-			pub.publish(pose)
+
+			circle.linear.y = 1 * math.cos(0.5*count)
+			circle.linear.x = 1 * math.sin(0.5*count)
+			circle.angular.z = -0.50
+			
+			count = count + 0.05
+
+			pub.publish(circle)
 			rate.sleep()
 
 	except KeyboardInterrupt:
